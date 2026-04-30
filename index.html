@@ -1,0 +1,977 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sentinel AI — Diagnóstico de Segurança</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;1,9..40,400&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: #080b16;
+    color: #dde1f0;
+    min-height: 100vh;
+    line-height: 1.6;
+  }
+
+  /* ─── GRID BACKGROUND ─── */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(99,102,241,0.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(99,102,241,0.04) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* ─── GLOW ORBS ─── */
+  .orb {
+    position: fixed;
+    border-radius: 50%;
+    filter: blur(80px);
+    pointer-events: none;
+    z-index: 0;
+  }
+  .orb-1 { width: 400px; height: 400px; top: -100px; left: -100px; background: rgba(99,102,241,0.12); }
+  .orb-2 { width: 300px; height: 300px; bottom: 10%; right: -80px; background: rgba(139,92,246,0.08); }
+
+  /* ─── PAGE WRAPPER ─── */
+  .page {
+    position: relative;
+    z-index: 1;
+    max-width: 720px;
+    margin: 0 auto;
+    padding: 0 1.5rem 4rem;
+  }
+
+  /* ─── HERO ─── */
+  .hero {
+    text-align: center;
+    padding: 4rem 1rem 3rem;
+  }
+
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(99,102,241,0.1);
+    border: 1px solid rgba(99,102,241,0.25);
+    color: #a5b4fc;
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 6px 16px;
+    border-radius: 100px;
+    margin-bottom: 1.5rem;
+  }
+
+  .badge-dot {
+    width: 6px; height: 6px;
+    background: #6366f1;
+    border-radius: 50%;
+    animation: blink 2s ease-in-out infinite;
+  }
+
+  @keyframes blink {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.4; transform: scale(0.7); }
+  }
+
+  .hero h1 {
+    font-family: 'Syne', sans-serif;
+    font-size: clamp(1.9rem, 5vw, 2.8rem);
+    font-weight: 700;
+    color: #f0f2ff;
+    line-height: 1.15;
+    margin-bottom: 1rem;
+  }
+
+  .hero h1 em {
+    font-style: normal;
+    background: linear-gradient(120deg, #818cf8, #c084fc);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .hero p {
+    font-size: 15px;
+    color: #64748b;
+    max-width: 500px;
+    margin: 0 auto;
+    line-height: 1.7;
+  }
+
+  /* ─── PROGRESS ─── */
+  .progress-wrap {
+    margin: 0 0 2rem;
+  }
+
+  .progress-meta {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+  }
+
+  .progress-label {
+    font-size: 12px;
+    color: #475569;
+  }
+
+  .progress-step {
+    font-size: 12px;
+    font-weight: 500;
+    color: #818cf8;
+  }
+
+  .progress-track {
+    height: 3px;
+    background: #1e2740;
+    border-radius: 2px;
+    overflow: hidden;
+  }
+
+  .progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #6366f1, #a78bfa);
+    border-radius: 2px;
+    transition: width 0.4s ease;
+    width: 0%;
+  }
+
+  /* ─── CARD ─── */
+  .card {
+    background: rgba(15, 20, 40, 0.7);
+    border: 1px solid rgba(99,102,241,0.12);
+    border-radius: 16px;
+    padding: 2rem 2rem 1.5rem;
+    backdrop-filter: blur(10px);
+  }
+
+  /* ─── STEP ─── */
+  .step { display: none; }
+  .step.active {
+    display: block;
+    animation: stepIn 0.35s ease;
+  }
+
+  @keyframes stepIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .step-tag {
+    font-size: 11px;
+    font-weight: 500;
+    color: #6366f1;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    margin-bottom: 4px;
+  }
+
+  .step-title {
+    font-family: 'Syne', sans-serif;
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: #f0f2ff;
+    margin-bottom: 4px;
+  }
+
+  .step-desc {
+    font-size: 13px;
+    color: #475569;
+    margin-bottom: 1.5rem;
+    line-height: 1.6;
+  }
+
+  /* ─── FIELDS ─── */
+  .field { margin-bottom: 1.2rem; }
+
+  .field label {
+    display: block;
+    font-size: 13px;
+    font-weight: 500;
+    color: #94a3b8;
+    margin-bottom: 6px;
+  }
+
+  .field label .req { color: #6366f1; }
+
+  .field input[type="text"],
+  .field input[type="email"],
+  .field input[type="tel"],
+  .field textarea,
+  .field select {
+    width: 100%;
+    background: rgba(8,11,22,0.8);
+    border: 1px solid #1e2740;
+    border-radius: 8px;
+    padding: 10px 14px;
+    font-size: 13px;
+    color: #dde1f0;
+    font-family: 'DM Sans', sans-serif;
+    outline: none;
+    transition: border-color 0.2s, box-shadow 0.2s;
+    appearance: none;
+    -webkit-appearance: none;
+  }
+
+  .field input::placeholder,
+  .field textarea::placeholder { color: #334155; }
+
+  .field input:focus,
+  .field textarea:focus,
+  .field select:focus {
+    border-color: #6366f1;
+    box-shadow: 0 0 0 3px rgba(99,102,241,0.12);
+  }
+
+  .field textarea { resize: vertical; min-height: 85px; }
+
+  .field select {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23475569' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 14px center;
+    padding-right: 36px;
+    cursor: pointer;
+  }
+
+  .field select option { background: #0f1525; color: #dde1f0; }
+
+  /* ─── CHIP GROUP ─── */
+  .chip-group {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .chip {
+    background: rgba(8,11,22,0.6);
+    border: 1px solid #1e2740;
+    border-radius: 100px;
+    padding: 7px 15px;
+    font-size: 12px;
+    font-family: 'DM Sans', sans-serif;
+    color: #64748b;
+    cursor: pointer;
+    transition: all 0.18s;
+    user-select: none;
+    line-height: 1;
+  }
+
+  .chip:hover {
+    border-color: rgba(99,102,241,0.4);
+    color: #a5b4fc;
+    background: rgba(99,102,241,0.05);
+  }
+
+  .chip.selected {
+    background: rgba(99,102,241,0.15);
+    border-color: rgba(99,102,241,0.5);
+    color: #c7d2fe;
+    font-weight: 500;
+  }
+
+  /* ─── TWO COLUMNS ─── */
+  .row2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+  }
+
+  /* ─── RISK INDICATOR ─── */
+  .risk-box {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: rgba(8,11,22,0.5);
+    border: 1px solid #1e2740;
+    border-radius: 10px;
+    padding: 12px 16px;
+    margin-bottom: 1.5rem;
+    transition: border-color 0.4s;
+  }
+
+  .risk-box.high { border-color: rgba(248,113,113,0.3); }
+  .risk-box.medium { border-color: rgba(251,191,36,0.3); }
+  .risk-box.low { border-color: rgba(74,222,128,0.3); }
+
+  .risk-dot {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    background: #334155;
+    transition: all 0.4s;
+  }
+
+  .risk-dot.high { background: #f87171; box-shadow: 0 0 10px rgba(248,113,113,0.5); }
+  .risk-dot.medium { background: #fbbf24; box-shadow: 0 0 10px rgba(251,191,36,0.5); }
+  .risk-dot.low { background: #4ade80; box-shadow: 0 0 10px rgba(74,222,128,0.5); }
+
+  .risk-info strong { font-size: 13px; font-weight: 500; color: #f0f2ff; }
+  .risk-info span { font-size: 12px; color: #475569; display: block; margin-top: 1px; }
+
+  /* ─── NAVIGATION ─── */
+  .nav {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 1.8rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid #1e2740;
+  }
+
+  .btn-back {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: transparent;
+    border: 1px solid #1e2740;
+    color: #475569;
+    padding: 9px 18px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-family: 'DM Sans', sans-serif;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .btn-back:hover { border-color: #334155; color: #94a3b8; }
+
+  .btn-next {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: #6366f1;
+    border: none;
+    color: #fff;
+    padding: 10px 22px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 500;
+    font-family: 'DM Sans', sans-serif;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .btn-next:hover { background: #5558e3; transform: translateY(-1px); box-shadow: 0 4px 16px rgba(99,102,241,0.3); }
+  .btn-next:active { transform: translateY(0); }
+
+  .btn-submit {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+    border: none;
+    color: #fff;
+    padding: 11px 26px;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 500;
+    font-family: 'DM Sans', sans-serif;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .btn-submit:hover { opacity: 0.9; transform: translateY(-1px); box-shadow: 0 6px 20px rgba(99,102,241,0.35); }
+  .btn-submit:active { transform: translateY(0); }
+
+  /* ─── SUCCESS ─── */
+  .success {
+    display: none;
+    text-align: center;
+    padding: 3rem 1rem;
+    animation: stepIn 0.4s ease;
+  }
+
+  .success.active { display: block; }
+
+  .success-ring {
+    width: 70px; height: 70px;
+    border-radius: 50%;
+    background: rgba(74,222,128,0.08);
+    border: 1px solid rgba(74,222,128,0.25);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 1.5rem;
+    font-size: 28px;
+  }
+
+  .success h2 {
+    font-family: 'Syne', sans-serif;
+    font-size: 1.6rem;
+    color: #f0f2ff;
+    margin-bottom: 0.6rem;
+  }
+
+  .success p {
+    font-size: 14px;
+    color: #475569;
+    max-width: 400px;
+    margin: 0 auto 2rem;
+    line-height: 1.7;
+  }
+
+  .risk-summary {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 18px;
+    border-radius: 100px;
+    font-size: 13px;
+    font-weight: 500;
+    margin-bottom: 2rem;
+  }
+
+  .risk-summary.high { background: rgba(248,113,113,0.1); border: 1px solid rgba(248,113,113,0.25); color: #fca5a5; }
+  .risk-summary.medium { background: rgba(251,191,36,0.1); border: 1px solid rgba(251,191,36,0.25); color: #fcd34d; }
+  .risk-summary.low { background: rgba(74,222,128,0.1); border: 1px solid rgba(74,222,128,0.25); color: #86efac; }
+
+  /* ─── HIDDEN FIELD ─── */
+  .hidden { display: none !important; }
+
+  /* ─── FOOTER ─── */
+  .footer {
+    text-align: center;
+    padding: 2rem 0 0;
+    font-size: 12px;
+    color: #1e2740;
+  }
+
+  /* ─── RESPONSIVE ─── */
+  @media (max-width: 500px) {
+    .row2 { grid-template-columns: 1fr; }
+    .card { padding: 1.5rem 1.2rem 1.2rem; }
+    .hero { padding: 2.5rem 0 2rem; }
+  }
+</style>
+</head>
+<body>
+
+<div class="orb orb-1"></div>
+<div class="orb orb-2"></div>
+
+<div class="page">
+
+  <!-- HERO -->
+  <div class="hero">
+    <div class="badge"><span class="badge-dot"></span> Sentinel AI</div>
+    <h1><em>Sentinel AI</em><br>Diagnóstico de Segurança</h1>
+    <p>Responda o questionário abaixo. Com base nas suas respostas, a Sentinel AI classifica o nível de risco e prepara um orçamento personalizado para sua aplicação.</p>
+  </div>
+
+  <!-- PROGRESS -->
+  <div class="progress-wrap" id="progressWrap">
+    <div class="progress-meta">
+      <span class="progress-label">Progresso</span>
+      <span class="progress-step" id="progressStep">Passo 1 de 7</span>
+    </div>
+    <div class="progress-track">
+      <div class="progress-fill" id="progressFill"></div>
+    </div>
+  </div>
+
+  <!-- FORM CARD -->
+  <div class="card" id="formCard">
+
+    <!-- STEP 1 -->
+    <div class="step active" id="step0">
+      <div class="step-tag">Passo 1 de 7</div>
+      <div class="step-title">Objetivo da Aplicação</div>
+      <div class="step-desc">Precisamos entender o propósito e o público da sua aplicação.</div>
+
+      <div class="field">
+        <label>Qual é o objetivo da aplicação? <span class="req">*</span></label>
+        <textarea id="q_objetivo" placeholder="Ex: plataforma de atendimento ao cliente, sistema de análise de contratos, chatbot de vendas..."></textarea>
+      </div>
+
+      <div class="field">
+        <label>A aplicação é... <span class="req">*</span></label>
+        <div class="chip-group" id="g_apptype">
+          <div class="chip" data-v="interna">Interna (equipe / empresa)</div>
+          <div class="chip" data-v="clientes">Usada por clientes externos</div>
+          <div class="chip" data-v="ambos">Ambos os públicos</div>
+        </div>
+      </div>
+
+      <div class="nav">
+        <div></div>
+        <button class="btn-next" onclick="goTo(1)">Próximo <span>→</span></button>
+      </div>
+    </div>
+
+    <!-- STEP 2 -->
+    <div class="step" id="step1">
+      <div class="step-tag">Passo 2 de 7</div>
+      <div class="step-title">Ferramentas de IA Utilizadas</div>
+      <div class="step-desc">Quais plataformas ou modelos de IA compõem a aplicação?</div>
+
+      <div class="field">
+        <label>Selecione todas que se aplicam <span class="req">*</span></label>
+        <div class="chip-group" id="g_tools">
+          <div class="chip" data-v="chatgpt">ChatGPT / OpenAI</div>
+          <div class="chip" data-v="claude">Claude / Anthropic</div>
+          <div class="chip" data-v="lovable">Lovable</div>
+          <div class="chip" data-v="gemini">Gemini / Google</div>
+          <div class="chip" data-v="copilot">GitHub Copilot</div>
+          <div class="chip" data-v="cursor">Cursor</div>
+          <div class="chip" data-v="bolt">Bolt.new</div>
+          <div class="chip" data-v="outro">Outro</div>
+        </div>
+      </div>
+
+      <div class="field hidden" id="f_outertool">
+        <label>Especifique as outras ferramentas</label>
+        <input type="text" id="q_othertool" placeholder="Ex: Mistral, LLaMA, modelo próprio...">
+      </div>
+
+      <div class="nav">
+        <button class="btn-back" onclick="goTo(0)">← Voltar</button>
+        <button class="btn-next" onclick="goTo(2)">Próximo →</button>
+      </div>
+    </div>
+
+    <!-- STEP 3 -->
+    <div class="step" id="step2">
+      <div class="step-tag">Passo 3 de 7</div>
+      <div class="step-title">Papel da IA no Sistema</div>
+      <div class="step-desc">Entender o quanto a IA influencia decisões é essencial para mapear o risco.</div>
+
+      <div class="field">
+        <label>A IA realiza alguma dessas ações? <span class="req">*</span></label>
+        <div class="chip-group" id="g_role">
+          <div class="chip" data-v="gera_codigo">Gera código</div>
+          <div class="chip" data-v="decisoes">Toma decisões autônomas</div>
+          <div class="chip" data-v="acessa_dados">Acessa dados em tempo real</div>
+          <div class="chip" data-v="executa">Executa ações no sistema</div>
+          <div class="chip" data-v="conteudo">Apenas gera texto / conteúdo</div>
+          <div class="chip" data-v="classifica">Classifica ou analisa documentos</div>
+        </div>
+      </div>
+
+      <div class="nav">
+        <button class="btn-back" onclick="goTo(1)">← Voltar</button>
+        <button class="btn-next" onclick="goTo(3)">Próximo →</button>
+      </div>
+    </div>
+
+    <!-- STEP 4 -->
+    <div class="step" id="step3">
+      <div class="step-tag">Passo 4 de 7</div>
+      <div class="step-title">Dados Utilizados</div>
+      <div class="step-desc">A presença de dados sensíveis aumenta significativamente o nível de risco.</div>
+
+      <div class="field">
+        <label>Quais tipos de dados a aplicação processa? <span class="req">*</span></label>
+        <div class="chip-group" id="g_data">
+          <div class="chip" data-v="pessoais">Dados pessoais (nome, CPF, e-mail)</div>
+          <div class="chip" data-v="financeiros">Dados financeiros</div>
+          <div class="chip" data-v="saude">Dados de saúde</div>
+          <div class="chip" data-v="corporativos">Dados corporativos / internos</div>
+          <div class="chip" data-v="juridicos">Dados jurídicos / contratos</div>
+          <div class="chip" data-v="publicos">Apenas dados públicos</div>
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Volume estimado de usuários ou registros</label>
+        <select id="q_volume">
+          <option value="">Selecionar...</option>
+          <option value="pequeno">Menos de 1.000 usuários</option>
+          <option value="medio">1.000 a 50.000 usuários</option>
+          <option value="grande">50.000 a 500.000 usuários</option>
+          <option value="enterprise">Mais de 500.000 usuários</option>
+        </select>
+      </div>
+
+      <div class="nav">
+        <button class="btn-back" onclick="goTo(2)">← Voltar</button>
+        <button class="btn-next" onclick="goTo(4)">Próximo →</button>
+      </div>
+    </div>
+
+    <!-- STEP 5 -->
+    <div class="step" id="step4">
+      <div class="step-tag">Passo 5 de 7</div>
+      <div class="step-title">Estrutura Técnica</div>
+      <div class="step-desc">Onde e como a aplicação está hospedada e quais são suas integrações?</div>
+
+      <div class="row2">
+        <div class="field">
+          <label>Hospedagem</label>
+          <select id="q_hosting">
+            <option value="">Selecionar...</option>
+            <option value="aws">AWS</option>
+            <option value="gcp">Google Cloud</option>
+            <option value="azure">Azure</option>
+            <option value="vercel">Vercel / Netlify</option>
+            <option value="propria">Infraestrutura própria</option>
+            <option value="nao_sei">Não sei informar</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Banco de dados</label>
+          <select id="q_database">
+            <option value="">Selecionar...</option>
+            <option value="postgres">PostgreSQL / MySQL</option>
+            <option value="mongodb">MongoDB</option>
+            <option value="firebase">Firebase / Supabase</option>
+            <option value="nuvem">Serviço gerenciado na nuvem</option>
+            <option value="sem_bd">Sem banco de dados</option>
+            <option value="nao_sei">Não sei</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Integrações com sistemas externos (APIs, ERPs, CRMs...)</label>
+        <input type="text" id="q_integracoes" placeholder="Ex: Salesforce, SAP, APIs de pagamento, webhooks...">
+      </div>
+
+      <div class="nav">
+        <button class="btn-back" onclick="goTo(3)">← Voltar</button>
+        <button class="btn-next" onclick="goTo(5)">Próximo →</button>
+      </div>
+    </div>
+
+    <!-- STEP 6 -->
+    <div class="step" id="step5">
+      <div class="step-tag">Passo 6 de 7</div>
+      <div class="step-title">Revisão e Controles de Segurança</div>
+      <div class="step-desc">Avaliamos o quanto o código e os controles existentes já mitigam riscos.</div>
+
+      <div class="field">
+        <label>O código foi revisado por humanos?</label>
+        <div class="chip-group" id="g_review">
+          <div class="chip" data-v="completo">Sim — revisão completa</div>
+          <div class="chip" data-v="parcial">Sim — parcialmente revisado</div>
+          <div class="chip" data-v="nao">Não — gerado majoritariamente por IA</div>
+          <div class="chip" data-v="nao_sei">Não sei informar</div>
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Quais controles de segurança já existem? (selecione todos que se aplicam)</label>
+        <div class="chip-group" id="g_controls">
+          <div class="chip" data-v="login">Autenticação / Login</div>
+          <div class="chip" data-v="2fa">2FA / MFA</div>
+          <div class="chip" data-v="permissoes">Controle de permissões</div>
+          <div class="chip" data-v="logs">Logs e auditoria</div>
+          <div class="chip" data-v="criptografia">Criptografia de dados</div>
+          <div class="chip" data-v="waf">WAF / Firewall</div>
+          <div class="chip" data-v="nenhum">Nenhum ainda</div>
+        </div>
+      </div>
+
+      <div class="nav">
+        <button class="btn-back" onclick="goTo(4)">← Voltar</button>
+        <button class="btn-next" onclick="goTo(6)">Próximo →</button>
+      </div>
+    </div>
+
+    <!-- STEP 7 -->
+    <div class="step" id="step6">
+      <div class="step-tag">Passo 7 de 7</div>
+      <div class="step-title">Seus Dados de Contato</div>
+      <div class="step-desc">Para enviarmos o orçamento personalizado com base no diagnóstico.</div>
+
+      <div class="risk-box" id="riskBox">
+        <div class="risk-dot" id="riskDot"></div>
+        <div class="risk-info">
+          <strong id="riskLabel">Calculando nível de risco...</strong>
+          <span id="riskDesc">aguardando dados das etapas anteriores</span>
+        </div>
+      </div>
+
+      <div class="row2">
+        <div class="field">
+          <label>Nome completo <span class="req">*</span></label>
+          <input type="text" id="q_nome" placeholder="Seu nome">
+        </div>
+        <div class="field">
+          <label>Empresa</label>
+          <input type="text" id="q_empresa" placeholder="Nome da empresa">
+        </div>
+      </div>
+
+      <div class="row2">
+        <div class="field">
+          <label>E-mail <span class="req">*</span></label>
+          <input type="email" id="q_email" placeholder="seu@email.com">
+        </div>
+        <div class="field">
+          <label>WhatsApp</label>
+          <input type="tel" id="q_whatsapp" placeholder="+55 (11) 99999-9999">
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Observações adicionais</label>
+        <textarea id="q_obs" placeholder="Contexto adicional, urgência, dúvidas ou informações relevantes..."></textarea>
+      </div>
+
+      <div class="nav">
+        <button class="btn-back" onclick="goTo(5)">← Voltar</button>
+        <button class="btn-submit" onclick="submitForm()">Enviar para análise ✓</button>
+      </div>
+    </div>
+
+  </div><!-- /card -->
+
+  <!-- SUCCESS -->
+  <div class="success" id="successScreen">
+    <div class="success-ring">✓</div>
+    <h2>Diagnóstico recebido!</h2>
+    <div id="successRisk"></div>
+    <p>A equipe da Sentinel AI analisará suas respostas e entrará em contato em breve com um orçamento personalizado ao nível de risco identificado na sua aplicação.</p>
+    <button class="btn-submit" style="margin:0 auto" onclick="resetForm()">↩ &nbsp;Novo diagnóstico</button>
+  </div>
+
+  <div class="footer">© Sentinel AI — Segurança para Aplicações com IA</div>
+
+</div><!-- /page -->
+
+<script>
+  var current = 0;
+  var totalSteps = 7;
+
+  // ─── CHIP SETUP ───
+  function initChips(groupId, multi) {
+    var grp = document.getElementById(groupId);
+    if (!grp) return;
+    grp.querySelectorAll('.chip').forEach(function(chip) {
+      chip.addEventListener('click', function() {
+        if (!multi) {
+          grp.querySelectorAll('.chip').forEach(function(c) { c.classList.remove('selected'); });
+        }
+        chip.classList.toggle('selected');
+
+        // show "outro" text field
+        if (groupId === 'g_tools') {
+          var hasOtro = grp.querySelector('[data-v="outro"]') && grp.querySelector('[data-v="outro"]').classList.contains('selected');
+          document.getElementById('f_outertool').classList.toggle('hidden', !hasOtro);
+        }
+      });
+    });
+  }
+
+  initChips('g_apptype', false);
+  initChips('g_tools', true);
+  initChips('g_role', true);
+  initChips('g_data', true);
+  initChips('g_review', false);
+  initChips('g_controls', true);
+
+  // ─── GET SELECTED VALUES ───
+  function getSelected(groupId) {
+    var grp = document.getElementById(groupId);
+    if (!grp) return [];
+    return Array.from(grp.querySelectorAll('.chip.selected')).map(function(c) { return c.dataset.v; });
+  }
+
+  // ─── RISK CALC ───
+  function calcRisk() {
+    var score = 0;
+    var data    = getSelected('g_data');
+    var role    = getSelected('g_role');
+    var review  = getSelected('g_review');
+    var ctrl    = getSelected('g_controls');
+    var vol     = document.getElementById('q_volume').value;
+
+    if (data.indexOf('saude') > -1)       score += 3;
+    if (data.indexOf('financeiros') > -1) score += 3;
+    if (data.indexOf('pessoais') > -1)    score += 2;
+    if (data.indexOf('juridicos') > -1)   score += 2;
+
+    if (role.indexOf('decisoes') > -1)    score += 3;
+    if (role.indexOf('executa') > -1)     score += 3;
+    if (role.indexOf('gera_codigo') > -1) score += 2;
+    if (role.indexOf('acessa_dados') > -1)score += 1;
+
+    if (review.indexOf('nao') > -1)      score += 3;
+    if (review.indexOf('nao_sei') > -1)  score += 2;
+
+    if (ctrl.indexOf('nenhum') > -1)     score += 3;
+    if (ctrl.length >= 4)                score -= 2;
+
+    if (vol === 'grande' || vol === 'enterprise') score += 2;
+
+    var dot   = document.getElementById('riskDot');
+    var box   = document.getElementById('riskBox');
+    var label = document.getElementById('riskLabel');
+    var desc  = document.getElementById('riskDesc');
+
+    dot.className = 'risk-dot';
+    box.className = 'risk-box';
+
+    var level, labelTxt, descTxt;
+
+    if (score >= 8) {
+      level = 'high';
+      labelTxt = 'Risco Alto';
+      descTxt  = 'Pentest completo e auditoria aprofundada são necessários';
+    } else if (score >= 4) {
+      level = 'medium';
+      labelTxt = 'Risco Médio';
+      descTxt  = 'Análise de vulnerabilidades e revisão de código são recomendadas';
+    } else {
+      level = 'low';
+      labelTxt = 'Risco Baixo';
+      descTxt  = 'Revisão pontual e implementação de boas práticas são suficientes';
+    }
+
+    dot.classList.add(level);
+    box.classList.add(level);
+    label.textContent = labelTxt;
+    desc.textContent  = descTxt;
+
+    return { level: level, label: labelTxt };
+  }
+
+  // ─── NAVIGATION ───
+  function goTo(n) {
+    document.getElementById('step' + current).classList.remove('active');
+    current = n;
+    document.getElementById('step' + current).classList.add('active');
+
+    // update progress
+    var pct = Math.round((current / totalSteps) * 100);
+    document.getElementById('progressFill').style.width = pct + '%';
+    document.getElementById('progressStep').textContent = 'Passo ' + (current + 1) + ' de ' + totalSteps;
+
+    if (n === 6) calcRisk();
+
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  // ─── SUBMIT ───
+  function submitForm() {
+    var nome  = document.getElementById('q_nome').value.trim();
+    var email = document.getElementById('q_email').value.trim();
+
+    if (!nome) {
+      alert('Por favor, preencha seu nome.');
+      document.getElementById('q_nome').focus();
+      return;
+    }
+    if (!email || email.indexOf('@') < 1) {
+      alert('Por favor, informe um e-mail valido.');
+      document.getElementById('q_email').focus();
+      return;
+    }
+
+    var risk = calcRisk();
+
+    // collect all answers
+    var objetivo    = document.getElementById('q_objetivo').value.trim();
+    var apptype     = getSelected('g_apptype').join(', ');
+    var tools       = getSelected('g_tools').join(', ');
+    var othertool   = document.getElementById('q_othertool').value.trim();
+    var role        = getSelected('g_role').join(', ');
+    var dataSel     = getSelected('g_data').join(', ');
+    var volume      = document.getElementById('q_volume').value;
+    var hosting     = document.getElementById('q_hosting').value;
+    var database    = document.getElementById('q_database').value;
+    var integracoes = document.getElementById('q_integracoes').value.trim();
+    var review      = getSelected('g_review').join(', ');
+    var controls    = getSelected('g_controls').join(', ');
+    var empresa     = document.getElementById('q_empresa').value.trim();
+    var whatsapp    = document.getElementById('q_whatsapp').value.trim();
+    var obs         = document.getElementById('q_obs').value.trim();
+
+    var linhas = [
+      '=== SENTINEL AI - DIAGNOSTICO DE SEGURANCA ===',
+      '',
+      'NIVEL DE RISCO: ' + risk.label.toUpperCase(),
+      '',
+      '--- CONTATO ---',
+      'Nome: ' + nome,
+      'Empresa: ' + (empresa || '-'),
+      'E-mail: ' + email,
+      'WhatsApp: ' + (whatsapp || '-'),
+      '',
+      '--- APLICACAO ---',
+      'Objetivo: ' + (objetivo || '-'),
+      'Publico: ' + (apptype || '-'),
+      '',
+      '--- FERRAMENTAS DE IA ---',
+      'Ferramentas: ' + (tools || '-'),
+      othertool ? 'Outras: ' + othertool : '',
+      '',
+      '--- PAPEL DA IA ---',
+      'Funcoes: ' + (role || '-'),
+      '',
+      '--- DADOS ---',
+      'Tipos de dados: ' + (dataSel || '-'),
+      'Volume: ' + (volume || '-'),
+      '',
+      '--- ESTRUTURA TECNICA ---',
+      'Hospedagem: ' + (hosting || '-'),
+      'Banco de dados: ' + (database || '-'),
+      'Integracoes: ' + (integracoes || '-'),
+      '',
+      '--- SEGURANCA ATUAL ---',
+      'Revisao de codigo: ' + (review || '-'),
+      'Controles existentes: ' + (controls || '-'),
+      obs ? '\n--- OBSERVACOES ---\n' + obs : ''
+    ];
+    var mensagem = linhas.filter(function(l){ return l !== ''; }).join('\n');
+
+    // loading state
+    var btn = document.querySelector('.btn-submit');
+    btn.textContent = 'Enviando...';
+    btn.disabled = true;
+
+    fetch('https://formspree.io/f/xbdwrwrw', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      body: JSON.stringify({
+        _replyto: email,
+        _subject: '[Sentinel AI] Diagnostico - ' + risk.label + ' - ' + nome,
+        nome: nome,
+        empresa: empresa,
+        email: email,
+        whatsapp: whatsapp,
+        risco: risk.label,
+        mensagem: mensagem
+      })
+    })
+    .then(function(res){ return res.json(); })
+    .then(function(){ showSuccess(risk); })
+    .catch(function(){ showSuccess(risk); });
+  }
+
+  function showSuccess(risk) {
+    document.getElementById('formCard').style.display = 'none';
+    document.getElementById('progressWrap').style.display = 'none';
+
+    var sr = document.getElementById('successRisk');
+    sr.className = 'risk-summary ' + risk.level;
+    sr.innerHTML = '<span style="width:8px;height:8px;border-radius:50%;background:currentColor;display:inline-block;"></span> Nivel de risco classificado: <strong>' + risk.label + '</strong>';
+
+    document.getElementById('successScreen').classList.add('active');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  // ─── RESET ───
+  function resetForm() {
+    location.reload();
+  }
+
+  // init progress bar
+  document.getElementById('progressFill').style.width = '0%';
+</script>
+</body>
+</html>
